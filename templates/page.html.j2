@@ -1,0 +1,106 @@
+{%- macro link(title, url) -%}
+{%- set href = url | safe_url -%}
+{%- if href %}<a href="{{ href }}" target="_blank" rel="noopener noreferrer">{{ title }}</a>{% else %}{{ title }}{% endif -%}
+{%- endmacro -%}
+{%- macro news_list(items) -%}
+<ol>
+{%- for it in items %}
+  <li>
+    <div class="title">{{ link(it.article.title, it.article.url) }}</div>
+    {%- if it.article.source %}<div class="meta">{{ it.article.source }}</div>{% endif %}
+    {%- if it.summary %}<p class="summary">{{ it.summary }}</p>{% endif %}
+  </li>
+{%- endfor %}
+</ol>
+{%- endmacro -%}
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ date }} {{ label }} 뉴스·유튜브 브리핑</title>
+<style>
+:root { --bg:#f6f7f9; --card:#fff; --text:#1c1e21; --muted:#6b7280; --accent:#2563eb; --line:#e5e7eb; --warn-bg:#fff4e5; --warn-text:#8a4b00; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#111317; --card:#1b1e24; --text:#e8eaed; --muted:#9aa0a6; --accent:#8ab4f8; --line:#2c3038; --warn-bg:#3a2a12; --warn-text:#ffd29a; }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin:0; background:var(--bg); color:var(--text); font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif; overflow-wrap:anywhere; }
+main { max-width:720px; margin:0 auto; padding:16px; }
+h1 { font-size:1.4rem; margin:8px 0 4px; }
+h2 { font-size:1.15rem; margin:0 0 8px; }
+h3 { font-size:1rem; margin:16px 0 4px; color:var(--muted); }
+.headline { color:var(--muted); margin:0 0 16px; }
+section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:16px 0; }
+ol { margin:0; padding-left:1.5em; }
+li { margin:0 0 14px; }
+li:last-child { margin-bottom:0; }
+.title { font-weight:600; }
+.meta { font-size:.8rem; color:var(--muted); }
+.summary { margin:4px 0 0; font-size:.95rem; }
+a { color:var(--accent); text-decoration:none; }
+a:hover { text-decoration:underline; }
+.empty { color:var(--muted); margin:4px 0; }
+.notice { background:var(--warn-bg); color:var(--warn-text); border-radius:12px; padding:12px 16px; margin:16px 0; }
+.notice ul { margin:0; padding-left:1.2em; }
+</style>
+</head>
+<body>
+<main>
+<h1>{{ date }} {{ label }} 브리핑</h1>
+{%- if digest.headline %}
+<p class="headline">{{ digest.headline }}</p>
+{%- endif %}
+{%- if digest.errors %}
+<div class="notice" role="alert">
+  <strong>알림</strong>
+  <ul>
+  {%- for e in digest.errors %}
+    <li>{{ e }}</li>
+  {%- endfor %}
+  </ul>
+</div>
+{%- endif %}
+
+<section>
+<h2>전체 뉴스 TOP10</h2>
+{%- if digest.top_news %}
+{{ news_list(digest.top_news) }}
+{%- else %}
+<p class="empty">오늘은 가져오지 못했어요</p>
+{%- endif %}
+</section>
+
+<section>
+<h2>분야별 TOP3</h2>
+{%- for cat in categories %}
+<h3>{{ cat }}</h3>
+{%- set items = digest.by_category.get(cat) %}
+{%- if items %}
+{{ news_list(items) }}
+{%- else %}
+<p class="empty">오늘은 가져오지 못했어요</p>
+{%- endif %}
+{%- endfor %}
+</section>
+
+<section>
+<h2>유튜브 TOP10</h2>
+{%- if digest.videos %}
+<ol>
+{%- for v in digest.videos %}
+  <li>
+    <div class="title">{{ link(v.video.title, v.video.url) }}</div>
+    {%- if v.video.channel %}<div class="meta">{{ v.video.channel }}</div>{% endif %}
+    {%- if v.summary %}<p class="summary">{{ v.summary }}</p>{% endif %}
+  </li>
+{%- endfor %}
+</ol>
+{%- else %}
+<p class="empty">오늘은 가져오지 못했어요</p>
+{%- endif %}
+</section>
+</main>
+</body>
+</html>
