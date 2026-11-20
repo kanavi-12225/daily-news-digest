@@ -100,6 +100,7 @@ def send_with_refresh(
     link_url: str,
     post=requests.post,
     client_secret: str | None = None,
+    on_refresh=None,
 ) -> TokenPair | None:
     resp = _send(access_token, text, link_url, post)
     if resp.status_code == 200:
@@ -107,5 +108,7 @@ def send_with_refresh(
     if not _is_expired(resp):
         raise KakaoError(_describe("send memo", resp))
     pair = refresh_access_token(rest_api_key, refresh_token, post=post, client_secret=client_secret)
+    if on_refresh is not None:
+        on_refresh(pair)  # 재전송이 실패해도 새 토큰이 사라지지 않게 먼저 알린다
     send_memo(pair.access_token, text, link_url, post=post)
     return pair

@@ -1,10 +1,12 @@
 from datetime import datetime, timedelta, timezone
 
+import json
+
 import pytest
 
 from newsbot.config import CATEGORIES
 from newsbot.kakao import KakaoError, TokenPair
-from newsbot.main import load_dotenv, run
+from newsbot.main import load_dotenv, make_sender, run
 from newsbot.models import Article, ArticleSummary, Digest, Video, VideoSummary
 
 KST = timezone(timedelta(hours=9))
@@ -47,7 +49,7 @@ def pages_env(monkeypatch):
     monkeypatch.setenv("PAGES_BASE_URL", BASE_URL)
 
 
-def go(tmp_path, send=None, top=None, cat=None, vids=None, **kwargs):
+def go(tmp_path, send=None, top=None, cat=None, vids=None, summarize=None, **kwargs):
     send = send if send is not None else Recorder()
     code = run(
         "morning",
@@ -55,10 +57,11 @@ def go(tmp_path, send=None, top=None, cat=None, vids=None, **kwargs):
         fetch_top=lambda: [article(n) for n in range(10)] if top is None else top,
         fetch_category=cat or (lambda category, exclude_urls: [article(100 + len(category))]),
         fetch_videos=lambda: [video(n) for n in range(10)] if vids is None else vids,
-        summarize=fake_summarize,
+        summarize=summarize or fake_summarize,
         send=send,
         docs_dir=tmp_path / "docs",
         token_file=tmp_path / ".new_refresh_token",
+        message_file=tmp_path / ".digest_message",
         **kwargs,
     )
     return code, send
@@ -97,9 +100,27 @@ def test_categories_exclude_top_news_urls(tmp_path):
         return [article(200)]
 
     go(tmp_path, cat=cat)
-    expected = {f"https://news.example/{n}" for n in range(10)}
-    assert list(seen) == list(CATEGORIES)
-    assert all(urls == expected for urls in seen.values())
+    top_urls = {f"https://news.example/{n}" for n in range(10)}
+    names = list(seen)
+    assert names == list(CATEGORIES)
+    assert seen[names[0]] == top_urls
+    assert all(top_urls <= seen[name] for name in names)
+
+
+def test_categories_do_not_repeat_articles_across_categories(tmp_path):
+    pool = [article(n) for n in range(300, 330)]
+    captured = {}
+
+    def cat(category, exclude_urls):
+        return [a for a in pool if a.url not in exclude_urls][:3]
+
+    def spy(top, cats, videos):
+        captured.update(cats)
+        return fake_summarize(top, cats, videos)
+
+    go(tmp_path, cat=cat, summarize=spy)
+    urls = [a.url for items in captured.values() for a in items]
+    assert len(urls) == 18 and len(set(urls)) == 18
 
 
 def test_kakao_text_is_headline_newline_page_url(tmp_path):
@@ -145,3 +166,72 @@ def test_load_dotenv_sets_missing_vars_only(tmp_path, monkeypatch):
     assert os.environ["NB_KEEP"] == "shell"
     monkeypatch.delenv("NB_A")
     monkeypatch.delenv("NB_B")
+
+
+def test_build_phase_writes_page_and_message_but_does_not_send(tmp_path):
+    code, send = go(tmp_path, phase="build")
+    assert code == 0
+    assert send.calls == []
+    url = "https://user.github.io/newsbot/archive/2026-11-20-morning.html"
+    message = json.loads((tmp_path / ".digest_message").read_text(encoding="utf-8"))
+    assert message == {"text": f"오늘의 헤드라인\n{url}", "link": url}
+    assert (tmp_path / "docs" / "archive" / "2026-11-20-morning.html").exists()
+
+
+def test_send_phase_sends_saved_message_without_collecting(tmp_path):
+    go(tmp_path, phase="build")
+
+    def boom(*_a, **_k):
+        raise AssertionError("must not collect in send phase")
+
+    send = Recorder()
+    code = run(
+        "morning",
+        now=NOW,
+        phase="send",
+        fetch_top=boom,
+        fetch_category=boom,
+        fetch_videos=boom,
+        summarize=boom,
+        send=send,
+        docs_dir=tmp_path / "docs",
+        token_file=tmp_path / ".new_refresh_token",
+        message_file=tmp_path / ".digest_message",
+    )
+    assert code == 0
+    url = "https://user.github.io/newsbot/archive/2026-11-20-morning.html"
+    assert send.calls == [(f"오늘의 헤드라인\n{url}", url)]
+
+
+def test_send_phase_without_message_file_returns_nonzero(tmp_path):
+    send = Recorder()
+    code = run(
+        "morning",
+        now=NOW,
+        phase="send",
+        send=send,
+        docs_dir=tmp_path / "docs",
+        token_file=tmp_path / ".new_refresh_token",
+        message_file=tmp_path / ".digest_message",
+    )
+    assert code != 0 and send.calls == []
+
+
+def test_unknown_phase_raises(tmp_path):
+    with pytest.raises(ValueError):
+        run("morning", now=NOW, phase="bogus", docs_dir=tmp_path / "docs")
+
+
+def test_sender_persists_rotated_token_even_when_resend_fails(tmp_path, monkeypatch):
+    for name in ("KAKAO_REST_API_KEY", "KAKAO_ACCESS_TOKEN", "KAKAO_REFRESH_TOKEN"):
+        monkeypatch.setenv(name, "x")
+
+    def fake_send_with_refresh(*args, on_refresh=None, **kwargs):
+        on_refresh(TokenPair("A2", "R9"))
+        raise KakaoError("send memo failed: HTTP 500")
+
+    monkeypatch.setattr("newsbot.main.send_with_refresh", fake_send_with_refresh)
+    token_file = tmp_path / ".new_refresh_token"
+    with pytest.raises(KakaoError):
+        make_sender(token_file)("t", "https://x.io")
+    assert token_file.read_text(encoding="utf-8") == "R9"

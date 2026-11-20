@@ -151,3 +151,22 @@ def test_client_secret_not_leaked_on_refresh_failure():
         send_with_refresh("K", "A", "R", "hi", "https://x.io", post=post, client_secret="TOP_SECRET")
     assert "KOE010" in str(e.value) and "TOP_SECRET" not in str(e.value)
     assert post.calls[1][1]["data"]["client_secret"] == "TOP_SECRET"
+
+
+def test_on_refresh_called_before_resend_even_if_resend_fails():
+    seen = []
+    post = make_post(
+        FakeResp(401, {"code": -401}),
+        FakeResp(200, {"access_token": "A2", "refresh_token": "R2"}),
+        FakeResp(500, {}),
+    )
+    with pytest.raises(KakaoError):
+        send_with_refresh("K", "A", "R", "hi", "https://x.io", post=post, on_refresh=seen.append)
+    assert seen == [TokenPair("A2", "R2")]
+
+
+def test_on_refresh_not_called_when_no_refresh_needed():
+    seen = []
+    post = make_post(FakeResp(200, {"result_code": 0}))
+    send_with_refresh("K", "A", "R", "hi", "https://x.io", post=post, on_refresh=seen.append)
+    assert seen == []

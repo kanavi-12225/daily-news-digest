@@ -2,13 +2,17 @@ name: digest
 
 on:
   schedule:
-    - cron: "0 23 * * *"   # 08:00 KST (아침)
-    - cron: "0 10 * * *"   # 19:00 KST (저녁)
+    - cron: "7 23 * * *"   # 08:07 KST (아침). 정각은 GitHub이 가장 붐벼서 피한다.
+    - cron: "7 10 * * *"   # 19:07 KST (저녁)
   workflow_dispatch:
     inputs:
       slot:
-        description: "morning 또는 evening"
-        default: "morning"
+        description: "어느 회차로 실행할지"
+        type: choice
+        required: true
+        options:
+          - morning
+          - evening
 
 permissions:
   contents: write
@@ -20,9 +24,13 @@ concurrency:
 jobs:
   digest:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
+      # 대기열에서 기다리다 시작한 실행이 이전 실행의 푸시를 놓치지 않게 최신으로 맞춘다
+      - name: Fast-forward to latest
+        run: git pull --ff-only origin "$GITHUB_REF_NAME"
 
       - uses: actions/setup-python@v5
         with:
@@ -33,38 +41,30 @@ jobs:
 
       - name: Decide slot
         id: slot
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_SLOT: ${{ github.event.inputs.slot }}
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            if [ "${{ github.event.schedule }}" = "0 23 * * *" ]; then echo "value=morning" >> "$GITHUB_OUTPUT"; else echo "value=evening" >> "$GITHUB_OUTPUT"; fi
+          if [ "$EVENT_NAME" = "schedule" ]; then
+            if [ "$SCHEDULE" = "7 23 * * *" ]; then echo "value=morning" >> "$GITHUB_OUTPUT"; else echo "value=evening" >> "$GITHUB_OUTPUT"; fi
           else
-            echo "value=${{ github.event.inputs.slot }}" >> "$GITHUB_OUTPUT"
+            echo "value=$INPUT_SLOT" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Run digest
-        id: run
+      - name: Build page
         env:
           PYTHONPATH: src
+          SLOT: ${{ steps.slot.outputs.value }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-          KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
-          KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
-          KAKAO_ACCESS_TOKEN: ${{ secrets.KAKAO_ACCESS_TOKEN }}
-          KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
           PAGES_BASE_URL: ${{ vars.PAGES_BASE_URL }}
-        run: python -m newsbot.main --slot "${{ steps.slot.outputs.value }}"
+        run: python -m newsbot.main --slot "$SLOT" --phase build
 
-      - name: Persist rotated Kakao refresh token
-        if: always()
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          if [ -f .new_refresh_token ]; then
-            gh secret set KAKAO_REFRESH_TOKEN --repo "${{ github.repository }}" < .new_refresh_token
-            rm -f .new_refresh_token
-          fi
-
+      # 페이지가 올라간 뒤에 카톡을 보내야 링크가 바로 열린다
       - name: Publish pages
-        if: always()
+        env:
+          SLOT: ${{ steps.slot.outputs.value }}
         run: |
           git config user.name "newsbot"
           git config user.email "newsbot@users.noreply.github.com"
@@ -72,7 +72,34 @@ jobs:
           if git diff --cached --quiet; then
             echo "no page changes"
           else
-            git commit -m "chore: update digest (${{ steps.slot.outputs.value }})"
-            git pull --rebase origin "${GITHUB_REF_NAME}"
-            git push origin "HEAD:${GITHUB_REF_NAME}"
+            git commit -m "chore: update digest ($SLOT)"
+            git pull --rebase -X theirs origin "$GITHUB_REF_NAME"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
+
+      - name: Wait for the page to be reachable
+        run: |
+          PAGE_URL=$(python -c "import json; print(json.load(open('.digest_message', encoding='utf-8'))['link'])")
+          curl -fsS --retry 12 --retry-delay 15 --retry-all-errors -o /dev/null "$PAGE_URL" \
+            || echo "page not reachable yet; sending the message anyway"
+
+      - name: Send KakaoTalk message
+        env:
+          PYTHONPATH: src
+          SLOT: ${{ steps.slot.outputs.value }}
+          KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+          KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
+          KAKAO_ACCESS_TOKEN: ${{ secrets.KAKAO_ACCESS_TOKEN }}
+          KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
+        run: python -m newsbot.main --slot "$SLOT" --phase send
+
+      - name: Persist rotated Kakao refresh token
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -f .new_refresh_token ]; then
+            gh secret set KAKAO_REFRESH_TOKEN --repo "$REPO" < .new_refresh_token
+            rm -f .new_refresh_token
           fi

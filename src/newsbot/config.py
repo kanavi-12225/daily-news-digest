@@ -24,7 +24,7 @@ GOOGLE_NEWS_SEARCH_URL = "https://news.google.com/rss/search?q={query}&" + GOOGL
 
 
 def google_news_search_url(query: str) -> str:
-    return GOOGLE_NEWS_SEARCH_URL.format(query=quote(query))
+    return GOOGLE_NEWS_SEARCH_URL.format(query=quote(f"({query}) when:1d"))
 YOUTUBE_VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
 
 SUMMARY_MODEL = "claude-haiku-5-5"

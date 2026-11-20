@@ -15,7 +15,7 @@ class FakeMessages:
         self.calls.append(kwargs)
         if self.exc:
             raise self.exc
-        return SimpleNamespace(content=[SimpleNamespace(text=self.text)])
+        return SimpleNamespace(content=[SimpleNamespace(type="text", text=self.text)])
 
 
 class FakeClient:
@@ -117,3 +117,19 @@ def test_headline_is_truncated_to_120_chars():
     digest = summarize_digest(top, cats, vids, FakeClient(json.dumps(payload)))
     assert len(digest.headline) == 120
     assert digest.headline.endswith("…")
+
+
+def test_reads_text_block_when_thinking_block_comes_first():
+    payload = json.dumps(
+        {"headline": "h", "top_news": [{"id": 0, "summary": "s0"}], "by_category": {}, "videos": []}
+    )
+    client = FakeClient(None)
+    client.messages.create = lambda **kw: SimpleNamespace(
+        content=[
+            SimpleNamespace(type="thinking", thinking="생각 중"),
+            SimpleNamespace(type="text", text=payload),
+        ]
+    )
+    digest = summarize_digest(_four()[:1], {}, [], client)
+    assert digest.top_news[0].summary == "s0"
+    assert digest.errors == []

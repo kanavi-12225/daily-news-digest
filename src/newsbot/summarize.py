@@ -102,7 +102,9 @@ def summarize_digest(
         )
         if getattr(response, "stop_reason", None) == "max_tokens":
             raise ValueError("max_tokens")
-        data = _parse_json(response.content[0].text)
+        # 생각(thinking) 블록 등이 앞에 올 수 있으므로 text 블록만 이어 붙인다
+        text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
+        data = _parse_json(text)
     except Exception as exc:  # API failure or unparseable response; never include secrets
         reason = "max_tokens" if str(exc) == "max_tokens" else type(exc).__name__
         return _assemble(

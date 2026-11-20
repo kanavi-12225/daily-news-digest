@@ -50,6 +50,7 @@ def test_category_news_requests_search_feed_with_category_keywords():
     fetch_category_news("국제", parse=spy)
     assert "news.google.com/rss/search?q=" in seen[0]
     assert "%EA%B5%AD%EC%A0%9C" in seen[0]  # URL-encoded "국제"
+    assert "when%3A1d" in seen[0]  # only the last day
 
 
 def test_fetch_returns_empty_list_when_feed_raises():
