@@ -28,4 +28,4 @@ def google_news_search_url(query: str) -> str:
 YOUTUBE_VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
 
 SUMMARY_MODEL = "claude-haiku-5-5"
-SUMMARY_MAX_TOKENS = 4000
+SUMMARY_MAX_TOKENS = 8000
