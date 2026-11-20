@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 from newsbot.config import KAKAO_TOKEN_URL  # noqa: E402
 from newsbot.kakao import KakaoError, send_memo  # noqa: E402
+from newsbot.main import PROJECT_ROOT, load_dotenv  # noqa: E402
 
 AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize"
 DEFAULT_REDIRECT_URI = "http://localhost:3000/oauth"
@@ -40,6 +41,7 @@ def _ask(prompt: str, env_name: str, secret: bool = False, required: bool = True
 
 
 def main() -> int:
+    load_dotenv(PROJECT_ROOT / ".env")
     rest_key = _ask("카카오 REST API 키: ", "KAKAO_REST_API_KEY", secret=True)
     client_secret = _ask(
         "Client Secret (사용 설정을 안 했다면 그냥 Enter): ",
