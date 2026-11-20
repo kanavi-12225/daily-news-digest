@@ -118,3 +118,12 @@ def summarize_digest(
     raw = data.get("headline")
     headline = _truncate(" ".join(raw.split())) if isinstance(raw, str) and raw.strip() else FALLBACK_HEADLINE
     return _assemble(top_news, by_category, videos, data, headline, [])
+
+
+def titles_only_digest(
+    top_news: list[Article],
+    by_category: dict[str, list[Article]],
+    videos: list[Video],
+) -> Digest:
+    """AI 요약 없이 제목과 링크만 담은 Digest. 요약을 일부러 끈 경우이므로 오류 알림은 없다."""
+    return _assemble(top_news, by_category, videos, {}, FALLBACK_HEADLINE, [])

@@ -2,7 +2,7 @@ import json
 from types import SimpleNamespace
 
 from newsbot.models import Article, Video
-from newsbot.summarize import FALLBACK_HEADLINE, summarize_digest
+from newsbot.summarize import FALLBACK_HEADLINE, summarize_digest, titles_only_digest
 
 
 class FakeMessages:
@@ -132,4 +132,15 @@ def test_reads_text_block_when_thinking_block_comes_first():
     )
     digest = summarize_digest(_four()[:1], {}, [], client)
     assert digest.top_news[0].summary == "s0"
+    assert digest.errors == []
+
+
+def test_titles_only_digest_has_no_summaries_and_no_error_notice():
+    top, cats, vids = _inputs()
+    digest = titles_only_digest(top, cats, vids)
+    assert [s.article.title for s in digest.top_news] == ["제목1"]
+    assert digest.top_news[0].summary is None
+    assert digest.by_category["경제·산업"][0].summary is None
+    assert digest.videos[0].summary is None
+    assert digest.headline == FALLBACK_HEADLINE
     assert digest.errors == []

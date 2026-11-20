@@ -6,7 +6,7 @@ import pytest
 
 from newsbot.config import CATEGORIES
 from newsbot.kakao import KakaoError, TokenPair
-from newsbot.main import load_dotenv, make_sender, run
+from newsbot.main import _default_summarize, load_dotenv, make_sender, run
 from newsbot.models import Article, ArticleSummary, Digest, Video, VideoSummary
 
 KST = timezone(timedelta(hours=9))
@@ -235,3 +235,14 @@ def test_sender_persists_rotated_token_even_when_resend_fails(tmp_path, monkeypa
     with pytest.raises(KakaoError):
         make_sender(token_file)("t", "https://x.io")
     assert token_file.read_text(encoding="utf-8") == "R9"
+
+
+@pytest.mark.parametrize("value", [None, "", "   "])
+def test_default_summarize_skips_ai_when_key_missing_or_blank(monkeypatch, value):
+    if value is None:
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    else:
+        monkeypatch.setenv("ANTHROPIC_API_KEY", value)
+    digest = _default_summarize([article(1)], {"국제": [article(2)]}, [video(3)])
+    assert digest.top_news[0].summary is None
+    assert digest.errors == []

@@ -40,6 +40,12 @@ def _default_category(category: str, exclude_urls: set[str]):
 
 
 def _default_summarize(top, by_category, videos):
+    # Anthropic 키가 없으면 AI 요약을 건너뛰고 제목과 링크만 보여 준다 (키를 넣으면 자동으로 켜진다)
+    if not os.environ.get("ANTHROPIC_API_KEY", "").strip():
+        from newsbot.summarize import titles_only_digest
+
+        return titles_only_digest(top, by_category, videos)
+
     import anthropic
 
     from newsbot.summarize import summarize_digest
