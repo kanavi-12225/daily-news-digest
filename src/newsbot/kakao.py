@@ -62,16 +62,20 @@ def _send(access_token: str, text: str, link_url: str, post):
     )
 
 
-def refresh_access_token(rest_api_key: str, refresh_token: str, post=requests.post) -> TokenPair:
-    resp = post(
-        KAKAO_TOKEN_URL,
-        data={
-            "grant_type": "refresh_token",
-            "client_id": rest_api_key,
-            "refresh_token": refresh_token,
-        },
-        timeout=TIMEOUT,
-    )
+def refresh_access_token(
+    rest_api_key: str,
+    refresh_token: str,
+    post=requests.post,
+    client_secret: str | None = None,
+) -> TokenPair:
+    form = {
+        "grant_type": "refresh_token",
+        "client_id": rest_api_key,
+        "refresh_token": refresh_token,
+    }
+    if client_secret:
+        form["client_secret"] = client_secret
+    resp = post(KAKAO_TOKEN_URL, data=form, timeout=TIMEOUT)
     if resp.status_code != 200:
         raise KakaoError(_describe("token refresh", resp))
     body = _body(resp)
@@ -95,12 +99,13 @@ def send_with_refresh(
     text: str,
     link_url: str,
     post=requests.post,
+    client_secret: str | None = None,
 ) -> TokenPair | None:
     resp = _send(access_token, text, link_url, post)
     if resp.status_code == 200:
         return None
     if not _is_expired(resp):
         raise KakaoError(_describe("send memo", resp))
-    pair = refresh_access_token(rest_api_key, refresh_token, post=post)
+    pair = refresh_access_token(rest_api_key, refresh_token, post=post, client_secret=client_secret)
     send_memo(pair.access_token, text, link_url, post=post)
     return pair

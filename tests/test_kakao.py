@@ -133,3 +133,21 @@ def test_retry_failure_raises():
     with pytest.raises(KakaoError):
         send_with_refresh("K", "A", "R", "hi", "https://x.io", post=post)
     assert len(post.calls) == 3
+
+
+def test_client_secret_included_only_when_given():
+    post = make_post(FakeResp(200, {"access_token": "A"}))
+    refresh_access_token("K", "R", post=post, client_secret="CS")
+    assert post.calls[0][1]["data"]["client_secret"] == "CS"
+    for empty in (None, ""):
+        post = make_post(FakeResp(200, {"access_token": "A"}))
+        refresh_access_token("K", "R", post=post, client_secret=empty)
+        assert "client_secret" not in post.calls[0][1]["data"]
+
+
+def test_client_secret_not_leaked_on_refresh_failure():
+    post = make_post(FakeResp(401, {"code": -401}), FakeResp(400, {"error": "invalid_client", "error_code": "KOE010"}))
+    with pytest.raises(KakaoError) as e:
+        send_with_refresh("K", "A", "R", "hi", "https://x.io", post=post, client_secret="TOP_SECRET")
+    assert "KOE010" in str(e.value) and "TOP_SECRET" not in str(e.value)
+    assert post.calls[1][1]["data"]["client_secret"] == "TOP_SECRET"
