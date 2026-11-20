@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Google 뉴스</title>
+    <item>
+      <title>기사 제목 1 - 매체1</title>
+      <link>https://news.example.com/article/1</link>
+      <guid isPermaLink="false">guid1</guid>
+      <pubDate>Fri, 20 Nov 2026 01:00:00 GMT</pubDate>
+      <source url="https://s1.example.com">매체1</source>
+    </item>
+    <item>
+      <title>기사 제목 2 - 매체2</title>
+      <link>https://news.example.com/article/2</link>
+      <guid isPermaLink="false">guid2</guid>
+      <pubDate>Fri, 20 Nov 2026 02:00:00 GMT</pubDate>
+      <source url="https://s2.example.com">매체2</source>
+    </item>
+    <item>
+      <title>기사 제목 3 - 매체3</title>
+      <link>https://news.example.com/article/3</link>
+      <guid isPermaLink="false">guid3</guid>
+      <pubDate>Fri, 20 Nov 2026 03:00:00 GMT</pubDate>
+      <source url="https://s3.example.com">매체3</source>
+    </item>
+    <item>
+      <title>기사 제목 4 - 매체4</title>
+      <link>https://news.example.com/article/4</link>
+      <guid isPermaLink="false">guid4</guid>
+      <pubDate>Fri, 20 Nov 2026 04:00:00 GMT</pubDate>
+      <source url="https://s4.example.com">매체4</source>
+    </item>
+    <item>
+      <title>기사 제목 5 - 매체5</title>
+      <link>https://news.example.com/article/5</link>
+      <guid isPermaLink="false">guid5</guid>
+      <pubDate>Fri, 20 Nov 2026 05:00:00 GMT</pubDate>
+      <source url="https://s5.example.com">매체5</source>
+    </item>
+    <item>
+      <title>기사 제목 6 - 매체6</title>
+      <link>https://news.example.com/article/6</link>
+      <guid isPermaLink="false">guid6</guid>
+      <pubDate>Fri, 20 Nov 2026 06:00:00 GMT</pubDate>
+      <source url="https://s6.example.com">매체6</source>
+    </item>
+    <item>
+      <title>기사 제목 7 - 매체7</title>
+      <link>https://news.example.com/article/7</link>
+      <guid isPermaLink="false">guid7</guid>
+      <pubDate>Fri, 20 Nov 2026 07:00:00 GMT</pubDate>
+      <source url="https://s7.example.com">매체7</source>
+    </item>
+    <item>
+      <title>기사 제목 8 - 매체8</title>
+      <link>https://news.example.com/article/8</link>
+      <guid isPermaLink="false">guid8</guid>
+      <pubDate>Fri, 20 Nov 2026 08:00:00 GMT</pubDate>
+      <source url="https://s8.example.com">매체8</source>
+    </item>
+    <item>
+      <title>기사 제목 9 - 매체9</title>
+      <link>https://news.example.com/article/9</link>
+      <guid isPermaLink="false">guid9</guid>
+      <pubDate>Fri, 20 Nov 2026 09:00:00 GMT</pubDate>
+      <source url="https://s9.example.com">매체9</source>
+    </item>
+    <item>
+      <title>기사 제목 10 - 매체10</title>
+      <link>https://news.example.com/article/10</link>
+      <guid isPermaLink="false">guid10</guid>
+      <pubDate>Fri, 20 Nov 2026 00:00:00 GMT</pubDate>
+      <source url="https://s10.example.com">매체10</source>
+    </item>
+    <item>
+      <title>기사 제목 11 - 매체11</title>
+      <link>https://news.example.com/article/11</link>
+      <guid isPermaLink="false">guid11</guid>
+      <pubDate>Fri, 20 Nov 2026 01:00:00 GMT</pubDate>
+      <source url="https://s11.example.com">매체11</source>
+    </item>
+    <item>
+      <title>기사 제목 12 - 매체12</title>
+      <link>https://news.example.com/article/12</link>
+      <guid isPermaLink="false">guid12</guid>
+      <pubDate>Fri, 20 Nov 2026 02:00:00 GMT</pubDate>
+      
+    </item>
+  </channel>
+</rss>
