@@ -29,3 +29,7 @@ YOUTUBE_VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos"
 
 SUMMARY_MODEL = "claude-haiku-5-5"
 SUMMARY_MAX_TOKENS = 8000
+
+KAKAO_MEMO_SEND_URL = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
+KAKAO_TOKEN_URL = "https://kauth.kakao.com/oauth/token"
+KAKAO_TEXT_MAX = 200
