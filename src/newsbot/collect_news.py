@@ -1,10 +1,17 @@
+import time
+
 import feedparser
 
 from newsbot.config import CATEGORIES, GOOGLE_NEWS_TOP_URL, google_news_search_url
 from newsbot.models import Article
 
 
-def _to_articles(url: str, parse) -> list[Article]:
+MAX_ATTEMPTS = 4
+BASE_DELAY_SECONDS = 2.0
+_sleep = time.sleep
+
+
+def _parse_once(url: str, parse) -> list[Article]:
     try:
         feed = parse(url)
         articles = []
@@ -25,6 +32,17 @@ def _to_articles(url: str, parse) -> list[Article]:
         return articles
     except Exception:
         return []
+
+
+def _to_articles(url: str, parse) -> list[Article]:
+    """Google News는 짧은 시간에 요청이 몰리면 429로 빈 응답을 주므로, 비면 늘려 가며 재시도한다."""
+    for attempt in range(MAX_ATTEMPTS):
+        articles = _parse_once(url, parse)
+        if articles:
+            return articles
+        if attempt < MAX_ATTEMPTS - 1:
+            _sleep(BASE_DELAY_SECONDS * 2**attempt)
+    return []
 
 
 def fetch_top_news(limit: int = 10, parse=feedparser.parse) -> list[Article]:

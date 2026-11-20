@@ -63,3 +63,45 @@ def test_fetch_returns_empty_list_when_feed_raises():
 
 def test_unknown_category_returns_empty_list():
     assert fetch_category_news("없는분류", parse=fake_parse) == []
+
+
+def test_retries_with_growing_delays_when_feed_comes_back_empty(monkeypatch):
+    delays = []
+    monkeypatch.setattr("newsbot.collect_news._sleep", delays.append)
+    calls = []
+
+    def flaky(url):
+        calls.append(url)
+        return feedparser.parse("") if len(calls) < 3 else fake_parse(url)
+
+    articles = fetch_top_news(limit=3, parse=flaky)
+    assert len(articles) == 3
+    assert len(calls) == 3
+    assert delays == [2.0, 4.0]
+
+
+def test_gives_up_after_four_attempts_and_returns_empty_list(monkeypatch):
+    delays = []
+    monkeypatch.setattr("newsbot.collect_news._sleep", delays.append)
+    calls = []
+
+    def always_empty(url):
+        calls.append(url)
+        return feedparser.parse("")
+
+    assert fetch_top_news(parse=always_empty) == []
+    assert len(calls) == 4
+    assert delays == [2.0, 4.0, 8.0]
+
+
+def test_does_not_retry_when_feed_already_has_entries(monkeypatch):
+    delays = []
+    monkeypatch.setattr("newsbot.collect_news._sleep", delays.append)
+    calls = []
+
+    def once(url):
+        calls.append(url)
+        return fake_parse(url)
+
+    fetch_top_news(parse=once)
+    assert len(calls) == 1 and delays == []
