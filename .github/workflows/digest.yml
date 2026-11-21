@@ -58,7 +58,11 @@ jobs:
             HOUR=$(TZ=Asia/Seoul date +%H)
             if [ "$((10#$HOUR))" -lt 15 ]; then SLOT=morning; else SLOT=evening; fi
             TODAY=$(TZ=Asia/Seoul date +%F)
-            if [ -f "docs/archive/$TODAY-$SLOT.html" ]; then
+            if [ "$((10#$HOUR))" -lt 5 ]; then
+              # 새벽에 뒤늦게 시작된 예약 실행은 보내지 않는다 (다음 아침 회차를 막지 않도록)
+              echo "too late for the previous slot; skipping"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+            elif [ -f "docs/archive/$TODAY-$SLOT.html" ]; then
               echo "already sent: $TODAY $SLOT"
               echo "skip=true" >> "$GITHUB_OUTPUT"
             fi
