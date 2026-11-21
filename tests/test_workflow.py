@@ -40,7 +40,12 @@ def test_manual_slot_is_a_choice_of_morning_or_evening():
 def test_crons_avoid_the_top_of_the_hour_and_match_slot_decision():
     for cron in ("7 23 * * *", "7 10 * * *"):
         assert f'cron: "{cron}"' in WORKFLOW
-    assert 'SCHEDULE" = "7 23 * * *"' in WORKFLOW
+
+
+def test_scheduled_slot_comes_from_kst_hour_and_repeats_are_skipped():
+    assert "TZ=Asia/Seoul" in WORKFLOW
+    assert "skip=true" in WORKFLOW
+    assert WORKFLOW.count("steps.slot.outputs.skip != 'true'") >= 5
 
 
 def test_pages_are_published_before_kakao_message_is_sent():

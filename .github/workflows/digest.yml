@@ -2,8 +2,16 @@ name: digest
 
 on:
   schedule:
-    - cron: "7 23 * * *"   # 08:07 KST (아침). 정각은 GitHub이 가장 붐벼서 피한다.
+    # GitHub 예약 실행은 몇 시간씩 늦거나 통째로 빠지기도 한다. 그래서 같은 회차를 여러 번 예약해 두고,
+    # 이미 보낸 회차는 건너뛴다 (아래 Decide slot).
+    - cron: "7 23 * * *"   # 08:07 KST (아침)
+    - cron: "37 23 * * *"
+    - cron: "7 0 * * *"
+    - cron: "37 0 * * *"
     - cron: "7 10 * * *"   # 19:07 KST (저녁)
+    - cron: "37 10 * * *"
+    - cron: "7 11 * * *"
+    - cron: "37 11 * * *"
   workflow_dispatch:
     inputs:
       slot:
@@ -43,16 +51,24 @@ jobs:
         id: slot
         env:
           EVENT_NAME: ${{ github.event_name }}
-          SCHEDULE: ${{ github.event.schedule }}
           INPUT_SLOT: ${{ github.event.inputs.slot }}
         run: |
           if [ "$EVENT_NAME" = "schedule" ]; then
-            if [ "$SCHEDULE" = "7 23 * * *" ]; then echo "value=morning" >> "$GITHUB_OUTPUT"; else echo "value=evening" >> "$GITHUB_OUTPUT"; fi
+            # 한국 시각이 15시 전이면 아침, 아니면 저녁 회차로 본다 (실행이 늦어져도 같은 회차)
+            HOUR=$(TZ=Asia/Seoul date +%H)
+            if [ "$((10#$HOUR))" -lt 15 ]; then SLOT=morning; else SLOT=evening; fi
+            TODAY=$(TZ=Asia/Seoul date +%F)
+            if [ -f "docs/archive/$TODAY-$SLOT.html" ]; then
+              echo "already sent: $TODAY $SLOT"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+            fi
           else
-            echo "value=$INPUT_SLOT" >> "$GITHUB_OUTPUT"
+            SLOT="$INPUT_SLOT"
           fi
+          echo "value=$SLOT" >> "$GITHUB_OUTPUT"
 
       - name: Build page
+        if: steps.slot.outputs.skip != 'true'
         env:
           PYTHONPATH: src
           SLOT: ${{ steps.slot.outputs.value }}
@@ -63,6 +79,7 @@ jobs:
 
       # 페이지가 올라간 뒤에 카톡을 보내야 링크가 바로 열린다
       - name: Publish pages
+        if: steps.slot.outputs.skip != 'true'
         env:
           SLOT: ${{ steps.slot.outputs.value }}
         run: |
@@ -78,12 +95,14 @@ jobs:
           fi
 
       - name: Wait for the page to be reachable
+        if: steps.slot.outputs.skip != 'true'
         run: |
           PAGE_URL=$(python -c "import json; print(json.load(open('.digest_message', encoding='utf-8'))['link'])")
           curl -fsS --retry 12 --retry-delay 15 --retry-all-errors -o /dev/null "$PAGE_URL" \
             || echo "page not reachable yet; sending the message anyway"
 
       - name: Send KakaoTalk message
+        if: steps.slot.outputs.skip != 'true'
         env:
           PYTHONPATH: src
           SLOT: ${{ steps.slot.outputs.value }}
@@ -94,7 +113,7 @@ jobs:
         run: python -m newsbot.main --slot "$SLOT" --phase send
 
       - name: Persist rotated Kakao refresh token
-        if: always()
+        if: always() && steps.slot.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
           REPO: ${{ github.repository }}
