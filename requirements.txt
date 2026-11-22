@@ -1,5 +1,4 @@
-requests
-feedparser
-anthropic
-Jinja2
-pytest
+requests==2.34.2
+feedparser==6.0.14
+anthropic==2.11.0
+Jinja2==3.1.6
