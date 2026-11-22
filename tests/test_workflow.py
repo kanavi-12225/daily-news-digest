@@ -42,10 +42,14 @@ def test_crons_avoid_the_top_of_the_hour_and_match_slot_decision():
         assert f'cron: "{cron}"' in WORKFLOW
 
 
-def test_scheduled_slot_comes_from_kst_hour_and_repeats_are_skipped():
-    assert "TZ=Asia/Seoul" in WORKFLOW
-    assert "skip=true" in WORKFLOW
+def test_decide_step_uses_script_and_all_later_steps_honor_skip():
+    assert "scripts/decide_slot.sh" in WORKFLOW
     assert WORKFLOW.count("steps.slot.outputs.skip != 'true'") >= 5
+
+
+def test_force_input_and_per_slot_concurrency_group():
+    assert "force:" in WORKFLOW and "type: boolean" in WORKFLOW
+    assert "group: digest-" in WORKFLOW
 
 
 def test_pages_are_published_before_kakao_message_is_sent():
@@ -60,6 +64,7 @@ def test_checkout_is_fast_forwarded_before_building_to_avoid_rebase_conflicts():
     assert "-X theirs" in WORKFLOW
 
 
-def test_slot_is_marked_sent_only_after_kakao_send_and_dedupe_uses_the_marker():
-    assert WORKFLOW.index("--phase send") < WORKFLOW.index("touch \".sent/")
-    assert '-f ".sent/$TODAY-$SLOT"' in WORKFLOW
+def test_slot_is_marked_sent_only_after_kakao_send_with_retrying_push():
+    assert WORKFLOW.index("--phase send") < WORKFLOW.index('touch ".sent/')
+    assert "for i in 1 2 3 4 5" in WORKFLOW
+    assert "steps.slot.outputs.date" in WORKFLOW

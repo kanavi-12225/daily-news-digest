@@ -3,7 +3,7 @@ name: digest
 on:
   schedule:
     # GitHub 예약 실행은 몇 시간씩 늦거나 통째로 빠지기도 한다. 그래서 같은 회차를 여러 번 예약해 두고,
-    # 이미 보낸 회차는 건너뛴다 (아래 Decide slot).
+    # 이미 보낸 회차는 건너뛴다 (scripts/decide_slot.sh). 주 트리거는 cron-job.org의 workflow_dispatch.
     - cron: "7 23 * * *"   # 08:07 KST (아침)
     - cron: "37 23 * * *"
     - cron: "7 0 * * *"
@@ -21,12 +21,16 @@ on:
         options:
           - morning
           - evening
+      force:
+        description: "이미 보낸 회차여도 다시 보내기"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 concurrency:
-  group: digest
+  group: digest-${{ github.event.inputs.slot || (contains(fromJSON('["7 23 * * *","37 23 * * *","7 0 * * *","37 0 * * *"]'), github.event.schedule) && 'morning' || 'evening') }}
   cancel-in-progress: false
 
 jobs:
@@ -52,24 +56,9 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_SLOT: ${{ github.event.inputs.slot }}
-        run: |
-          if [ "$EVENT_NAME" = "schedule" ]; then
-            # 한국 시각이 15시 전이면 아침, 아니면 저녁 회차로 본다 (실행이 늦어져도 같은 회차)
-            HOUR=$(TZ=Asia/Seoul date +%H)
-            if [ "$((10#$HOUR))" -lt 15 ]; then SLOT=morning; else SLOT=evening; fi
-            TODAY=$(TZ=Asia/Seoul date +%F)
-            if [ "$((10#$HOUR))" -lt 5 ]; then
-              # 새벽에 뒤늦게 시작된 예약 실행은 보내지 않는다 (다음 아침 회차를 막지 않도록)
-              echo "too late for the previous slot; skipping"
-              echo "skip=true" >> "$GITHUB_OUTPUT"
-            elif [ -f ".sent/$TODAY-$SLOT" ]; then
-              echo "already sent: $TODAY $SLOT"
-              echo "skip=true" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            SLOT="$INPUT_SLOT"
-          fi
-          echo "value=$SLOT" >> "$GITHUB_OUTPUT"
+          FORCE: ${{ github.event.inputs.force }}
+          SCHEDULE: ${{ github.event.schedule }}
+        run: bash scripts/decide_slot.sh >> "$GITHUB_OUTPUT"
 
       - name: Build page
         if: steps.slot.outputs.skip != 'true'
@@ -102,7 +91,7 @@ jobs:
         if: steps.slot.outputs.skip != 'true'
         run: |
           PAGE_URL=$(python -c "import json; print(json.load(open('.digest_message', encoding='utf-8'))['link'])")
-          curl -fsS --retry 12 --retry-delay 15 --retry-all-errors -o /dev/null "$PAGE_URL" \
+          curl -fsS --retry 6 --retry-delay 10 --retry-all-errors -o /dev/null "$PAGE_URL" \
             || echo "page not reachable yet; sending the message anyway"
 
       - name: Send KakaoTalk message
@@ -121,13 +110,19 @@ jobs:
         if: steps.slot.outputs.skip != 'true'
         env:
           SLOT: ${{ steps.slot.outputs.value }}
+          SLOT_DATE: ${{ steps.slot.outputs.date }}
         run: |
           mkdir -p .sent
-          touch ".sent/$(TZ=Asia/Seoul date +%F)-$SLOT"
+          touch ".sent/$SLOT_DATE-$SLOT"
           git add .sent
+          git diff --cached --quiet && exit 0
           git commit -m "chore: mark $SLOT sent"
-          git pull --rebase -X theirs origin "$GITHUB_REF_NAME"
-          git push origin "HEAD:$GITHUB_REF_NAME"
+          for i in 1 2 3 4 5; do
+            if git pull --rebase -X theirs origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME"; then exit 0; fi
+            sleep $((i * 3))
+          done
+          echo "could not push the sent marker" >&2
+          exit 1
 
       - name: Persist rotated Kakao refresh token
         if: always() && steps.slot.outputs.skip != 'true'
