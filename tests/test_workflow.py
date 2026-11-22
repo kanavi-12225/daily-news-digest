@@ -58,3 +58,8 @@ def test_pages_are_published_before_kakao_message_is_sent():
 def test_checkout_is_fast_forwarded_before_building_to_avoid_rebase_conflicts():
     assert WORKFLOW.index("pull --ff-only") < WORKFLOW.index("--phase build")
     assert "-X theirs" in WORKFLOW
+
+
+def test_slot_is_marked_sent_only_after_kakao_send_and_dedupe_uses_the_marker():
+    assert WORKFLOW.index("--phase send") < WORKFLOW.index("touch \".sent/")
+    assert '-f ".sent/$TODAY-$SLOT"' in WORKFLOW

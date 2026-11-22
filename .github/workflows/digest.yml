@@ -62,7 +62,7 @@ jobs:
               # 새벽에 뒤늦게 시작된 예약 실행은 보내지 않는다 (다음 아침 회차를 막지 않도록)
               echo "too late for the previous slot; skipping"
               echo "skip=true" >> "$GITHUB_OUTPUT"
-            elif [ -f "docs/archive/$TODAY-$SLOT.html" ]; then
+            elif [ -f ".sent/$TODAY-$SLOT" ]; then
               echo "already sent: $TODAY $SLOT"
               echo "skip=true" >> "$GITHUB_OUTPUT"
             fi
@@ -115,6 +115,19 @@ jobs:
           KAKAO_ACCESS_TOKEN: ${{ secrets.KAKAO_ACCESS_TOKEN }}
           KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
         run: python -m newsbot.main --slot "$SLOT" --phase send
+
+      # 카톡 전송이 성공한 회차만 기록한다 (전송이 실패하면 다음 예약이 다시 시도한다)
+      - name: Mark slot as sent
+        if: steps.slot.outputs.skip != 'true'
+        env:
+          SLOT: ${{ steps.slot.outputs.value }}
+        run: |
+          mkdir -p .sent
+          touch ".sent/$(TZ=Asia/Seoul date +%F)-$SLOT"
+          git add .sent
+          git commit -m "chore: mark $SLOT sent"
+          git pull --rebase -X theirs origin "$GITHUB_REF_NAME"
+          git push origin "HEAD:$GITHUB_REF_NAME"
 
       - name: Persist rotated Kakao refresh token
         if: always() && steps.slot.outputs.skip != 'true'
